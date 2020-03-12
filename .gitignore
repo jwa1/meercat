@@ -1,3 +1,5 @@
+mercat-bot-qfrioq-c7a84f8fc171.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -62,6 +64,7 @@ instance/
 
 # Scrapy stuff:
 .scrapy
+mercat-bot-qfrioq-c7a84f8fc171.json
 
 # Sphinx documentation
 docs/_build/
