@@ -37,27 +37,53 @@ class ChatBot():
         # The text to return and send back to the user
         # This will sometimes be overridden by DialogFlow
         fulfillment_text = ""
+        followup_event = None
 
         fields = data["queryResult"]["parameters"]
-        if fields:
-            model = fields.get("Model", None)
-            if model and model:
-                print(f"Found model {model}")
-                match = self.converter.find_equivalent_switch(model)
+        switch_entity = fields.get("Model", None)
+        
+        match_data = self.converter.find_equivalent_switch(fields)
+        matched_switches = match_data.get("switches", None)
 
-                # Check if we found any switch matching the model
-                if not match:
-                    fulfillment_text = "Sorry, I couldn't find any switch matching that model number."
-                elif len(match) > 1:
-                    fulfillment_text = "I've found multiple matches for that model - please be more specific.\n"
-                    for switch in match:
-                        fulfillment_text += f"* {switch.model}\n"
-                    fulfillment_text = fulfillment_text[:-1]
-                else:
-                    attachment = utils.generate_adaptive_card(model, match[0])
-                    self.api.messages.create(roomId=room_id, text=str(match[0]), attachments=[attachment])
+        # Check if we found any switch matching the model
+        if not matched_switches:
+            # Couldn't find any switch matching the model
+            if not match_data["matched"]:
+                fulfillment_text = "Sorry, I couldn't find any switch matching that model number."
+            # Found a switch but couldn't find an equivalent
+            else:
+                fulfillment_text = f"Sorry, I couldn't find an equivalent switch for that."
+        
+        # Multiple fixed chassis matches
+        elif len(matched_switches) > 1 and not match_data["modular"]:
+            fulfillment_text = "I've found multiple matches for that model - please be more specific.\n"
+            for switch in matched_switches:
+                fulfillment_text += f"** {switch.model}\n"
+            fulfillment_text = fulfillment_text[:-1]
+
+        # Modular switch
+        elif len(matched_switches) > 1 and match_data["modular"]:
+            fulfillment_text = "This is a modular switch - what is the correct combination?\n"
+            for switch in matched_switches:
+                fulfillment_text += f"** {switch.model} with a {switch.network_module}\n"
+            fulfillment_text = fulfillment_text[:-1]
+
+            # Return a follow up event to change intents in DialogFlow
+            # followup_event = {
+            #     "name": "switchmodel-modular",
+            #     "languageCode": "en-US",
+            #     # "parameters": fields
+            # }
+        else:
+            attachment = utils.generate_adaptive_card(switch_entity, matched_switches[0])
+            self.api.messages.create(roomId=room_id, text=str(matched_switches[0]), attachments=[attachment])
         
         reply = {"fulfillmentText": fulfillment_text}
+
+        # Set a DialogFlow followup event
+        if followup_event:
+            reply["followupEventInput"] = followup_event
+
         return jsonify(reply)
 
     def receive_message(self, json_data):
@@ -80,6 +106,7 @@ class ChatBot():
         # If you respond to all messages...  You will respond to the messages
         # that the bot posts and thereby create a loop condition.
         if message.personId == self.me.id:
+            print("Sent by me")
             # Message was sent by me (bot); do not respond.
             return "OK"
 
