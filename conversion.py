@@ -35,18 +35,10 @@ class Converter:
 
             db_session = models.Session()
 
-            # Construct a filter based on current information
-            filters = []
-            if model:
-                # TODO: Move this somewhere better
-                model = model.replace("-", "%-%")
-                filters.append(models.Switch.model.like(f"%{model}%"))
-            if network_module:
-                # TODO: Move this somewhere better
-                network_module = network_module.replace("-", "%-%")
-                filters.append(models.Switch.network_module.like(f"%{network_module}%"))
-
-            requested_switch = self.find_switches_with_filters(db_session, filters)
+            requested_switch = self.find_switches_with_filters(db_session, 
+                                    model=model, 
+                                    network_module=network_module
+                                )
 
             # We found one match
             if len(requested_switch) == 1:
@@ -80,28 +72,44 @@ class Converter:
         finally:
             db_session.close()
 
-    def find_switches_with_filters(self, db_session, filters):
+    # To fuzzy match we will inlude wildcards in between each model break
+    # E.g. C9300L-48T-4G-E -> %C9300L%-%48T%-%4G%-%E%
+    # This will ensure that C9300L-48T will match switches in that family
+    def find_switches_with_filters(self, db_session, fuzzy_match=False, expand=True, id=None, model=None, network_module=None):
         switches = db_session.query(models.Switch)
 
-        for filter in filters:
-            switches = switches.filter(filter)
-        
-        return switches.all()
+        # Filter based on passed parameters
+        if model:
+            if fuzzy_match:
+                model = model.replace("-", "%-%")
+            switches = switches.filter(models.Switch.model.like(f"%{model}%"))
+        if network_module:
+            if fuzzy_match:
+                network_module = network_module.replace("-", "%-%")
+            switches = switches.filter(models.Switch.network_module.like(f"%{network_module}%"))
+        if id:
+            if fuzzy_match:
+                network_module = network_module.replace("-", "%-%")
+            switches = switches.filter(models.Switch.id.like(f"%{id}%"))
 
-    def find_switch_by_id(self, db_session, id):
-        return db_session.query(models.Switch).filter(models.Switch.id.like(f"%{id}%")).all()
+        # Get all switches from the query
+        switches = switches.all()
 
-    def find_switch_by_model(self, db_session, model, fuzzy_match=False):
-        # To fuzzy match we will inlude wildcards in between each model break
-        # E.g. C9300L-48T-4G-E -> %C9300L%-%48T%-%4G%-%E%
-        # This will ensure that C9300L-48T will match switches in that family
-        if fuzzy_match:
-            model = model.replace("-", "%-%")
+        # Do a recursive fuzzy match if a direct match wasn't found
+        if len(switches) == 0 and not fuzzy_match and expand:
+            return self.find_switches_with_filters(db_session,
+                        fuzzy_match=True,
+                        model=model,
+                        network_module=network_module
+                    )
 
-        return self.find_switches_with_filters(
-                    db_session,
-                    models.Switch.model.like(f"%{model}%"),
-                )
+        return switches
+
+    def find_switch_by_id(self, db_session, id, expand=False):
+        return self.find_switches_with_filters(db_session, id=id, expand=expand)
+
+    def find_switch_by_model(self, db_session, model, expand=True):
+        return self.find_switches_with_filters(db_session, model=model, expand=expand)
 
     def find_switch_mapping(self, db_session, id):
         # Meraki models always start with M

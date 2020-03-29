@@ -29,6 +29,10 @@ def message_received():
     # Get the POST data sent from Webex Teams
     return bot.receive_message(request.json)
 
+@app.route('/actions', methods=['POST'])
+def attachment_action_received():
+    return bot.execute_action(request.json)
+
 # run Flask app
 if __name__ == "__main__":
     # Check for correct environment variables

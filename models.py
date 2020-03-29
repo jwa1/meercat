@@ -11,6 +11,18 @@ db_engine = db.create_engine(database_url)
 Session = sessionmaker(bind=db_engine)
 Base = declarative_base(name='Model')
 
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(String, primary_key=True)
+    privilege = Column(String)
+
+    def is_admin(self):
+        return self.privilege.lower() == "admin"
+
+    def can_edit(self):
+        return self.privilege.lower() == "editor" or self.is_admin()
+
 class Mapping(Base):
     __tablename__ = 'mapping'
 
