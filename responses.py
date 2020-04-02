@@ -1,11 +1,15 @@
 RESPONSE_HELP = "**Send your model number and I will attempt to convert it into an equivalent Meraki model.**\n\n" + \
+                "I understand natural language so you can type a question to me as well!\n\n" + \
                 "*Available commands:*  \n" + \
-                "**/list [switches/mapping]**: Lists all switches or mappings in the database.  \n" + \
+                "**/list [switches/mapping] [FILTER]**: Lists all switches or mappings in the database. Optionally you can provide a filter.  \n" + \
                 "**/edit [KEY]**: Edits the switch matching the key provided (keys returned from the list command, in the format MODEL+NETWORK_MODULE).  \n" + \
-                "**/add**: Adds a new switch to the database.  \n" + \
-                "**/remove [PK]**: Removes a switch from the database.  \n" + \
+                "**/add-switch**: Adds a new switch to the database.  \n" + \
+                "**/remove-switch [PK]**: Removes a switch from the database.  \n" + \
+                "**/add-mapping [PK_1] [PK_2]**: Adds a mapping between PK_1 and PK_2.  \n" + \
+                "**/remove-mapping [PK_1] [PK_2]**: Removes a mapping between PK_1 and PK_2 from the database.  \n" + \
                 "**/allow [USER_ID]**: Allows a user to edit the database.  \n" + \
                 "**/disallow [USER_ID]**: Disallows a user from editing the database.  \n" + \
+                "**/request [MESSAGE]**: Requests editing access. Please supply a message with details.  \n" + \
                 "**/export**: Exports a CSV copy of the current database for bulk editing.  \n" + \
                 "**/import**: Imports a CSV of the current database for bulk editing."
 

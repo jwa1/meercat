@@ -42,13 +42,18 @@ class Converter:
 
             # We found one match
             if len(requested_switch) == 1:
-                mapping_id = self.find_switch_mapping(db_session, requested_switch[0].id)
+                mapping_ids = self.find_switch_mapping(db_session, requested_switch[0].id)
                 # Could not find an equivalent
-                if not mapping_id:
+                if not mapping_ids:
                     data["matched"] = True
                     return data
-                equivalent_switch = self.find_switch_by_id(db_session, mapping_id)
-                # Pass the data back
+                equivalent_switch = []
+                for mapping_id in mapping_ids:
+                    matches = self.find_switch_by_id(db_session, mapping_id)
+                    if not equivalent_switch:
+                        matches.extend(self.find_switch_by_id(db_session, mapping_id, expand=True))
+                    equivalent_switch.extend(matches)
+                    # Pass the data back
                 data["switches"] = equivalent_switch
                 data["matched"] = True
             # Did not find any matching switch
@@ -79,18 +84,18 @@ class Converter:
         switches = db_session.query(models.Switch)
 
         # Filter based on passed parameters
-        if model:
+        if model and model != '':
             if fuzzy_match:
-                model = model.replace("-", "%-%")
-            switches = switches.filter(models.Switch.model.like(f"%{model}%"))
-        if network_module:
+                model = '%' + model.replace("-", "%-%") + '%'
+            switches = switches.filter(models.Switch.model.like(f"{model}"))
+        if network_module and network_module != '':
             if fuzzy_match:
-                network_module = network_module.replace("-", "%-%")
-            switches = switches.filter(models.Switch.network_module.like(f"%{network_module}%"))
-        if id:
+                network_module = '%' + network_module.replace("-", "%-%") + '%'
+            switches = switches.filter(models.Switch.network_module.like(f"{network_module}"))
+        if id and id != '':
             if fuzzy_match:
-                network_module = network_module.replace("-", "%-%")
-            switches = switches.filter(models.Switch.id.like(f"%{id}%"))
+                id = '%' + id.replace("-", "%-%") + '%'
+            switches = switches.filter(models.Switch.id.like(f"{id}"))
 
         # Get all switches from the query
         switches = switches.all()
@@ -100,7 +105,8 @@ class Converter:
             return self.find_switches_with_filters(db_session,
                         fuzzy_match=True,
                         model=model,
-                        network_module=network_module
+                        network_module=network_module,
+                        id=id
                     )
 
         return switches
@@ -118,13 +124,14 @@ class Converter:
                             models.Mapping.meraki.like(f"%{id}%")
                         ).all()
             if matches:
-                return matches[0].catalyst
+                return [m.catalyst for m in matches]
+                # return matches[0].catalyst
         else:
             matches = db_session.query(models.Mapping).filter(
                             models.Mapping.catalyst.like(f"%{id}%")
                         ).all()
             if matches:
-                return matches[0].meraki
+                return [m.meraki for m in matches]
 
         if __debug__:
             print(f"Error could not find mapping for {id}")

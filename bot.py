@@ -44,10 +44,10 @@ class ChatBot():
             return responses.RESPONSE_HELP
         elif command_type == "list":
             if "switch" in parameters or parameters == "":
-                switches = self.editor.list_all_switches()
+                switches = self.editor.list_all_switches(parameters)
                 return utils.Responses.generate_switches_response(switches)
             elif "map" in parameters:
-                mapping = self.editor.list_all_mapping()
+                mapping = self.editor.list_all_mapping(parameters)
                 return utils.Responses.generate_mapping_response(mapping)
             else:
                 return responses.RESPONSE_NOT_IMPLEMENTED
@@ -60,14 +60,36 @@ class ChatBot():
             if not switch:
                 return f"Cannot find switch with key {parameters}."
             return utils.Responses.generate_edit_response(switch)
-        elif command_type == "add":
-            return responses.RESPONSE_NOT_IMPLEMENTED
-        elif command_type == "remove":
-            return responses.RESPONSE_NOT_IMPLEMENTED
+        elif command_type == "add-switch":
+            # Check if the user is allowed to edit
+            if not self.editor.can_user_edit(person_id):
+                return responses.RESPONSE_NO_PERMISSION
+            return utils.Responses.generate_add_response()
+        elif command_type == "remove-switch":
+            # Check if the user is allowed to edit
+            if not self.editor.can_user_edit(person_id):
+                return responses.RESPONSE_NO_PERMISSION
+            return self.editor.remove_switch_by_id(parameters)
+        elif command_type == "add-mapping":
+            # Check if the user is allowed to edit
+            if not self.editor.can_user_edit(person_id):
+                return responses.RESPONSE_NO_PERMISSION
+            return self.editor.add_mapping_by_id(parameters)
+        elif command_type == "remove-mapping":
+            # Check if the user is allowed to edit
+            if not self.editor.can_user_edit(person_id):
+                return responses.RESPONSE_NO_PERMISSION
+            return self.editor.remove_mapping_by_id(parameters)
         elif command_type == "allow":
             return self.editor.allow_user_by_id(person_id, parameters)
         elif command_type == "disallow":
             return self.editor.disallow_user_by_id(person_id, parameters)
+        elif command_type == "request":
+            # @TODO dynamically get the admin user ids
+            self.api.messages.create(
+                toPersonId="Y2lzY29zcGFyazovL3VzL1BFT1BMRS82NGZlMTE5ZC0zNDIzLTQwOTYtYWVjZS1iYzc2Y2JiYzcyZjA",
+                text=f"User {person_id} requests access.\nMessage: {parameters}"
+            )
         elif command_type == "export":
             return responses.RESPONSE_NOT_IMPLEMENTED
         elif command_type == "import":
@@ -102,19 +124,18 @@ class ChatBot():
             # Found a switch but couldn't find an equivalent
             else:
                 fulfillment_text = f"Sorry, I couldn't find an equivalent switch for that."
-        
         # Multiple fixed chassis matches
-        elif len(matched_switches) > 1 and not match_data["modular"]:
-            fulfillment_text = "I've found multiple matches for that model - please be more specific.\n"
+        elif len(matched_switches) > 1 and not match_data["modular"] and not match_data["matched"]:
+            fulfillment_text = "**I've found multiple matches for that model - please be more specific.**\n\n"
             for switch in matched_switches:
-                fulfillment_text += f"** {switch.model}\n"
+                fulfillment_text += f"- {switch.model}\n"
             fulfillment_text = fulfillment_text[:-1]
 
         # Modular switch
         elif len(matched_switches) > 1 and match_data["modular"]:
-            fulfillment_text = "This is a modular switch - what is the correct combination?\n"
+            fulfillment_text = "**This is a modular switch - what is the correct combination?**\n\n"
             for switch in matched_switches:
-                fulfillment_text += f"** {switch.model} with a {switch.network_module}\n"
+                fulfillment_text += f"- {switch.model} with a {switch.network_module}\n"
             fulfillment_text = fulfillment_text[:-1]
 
             # Return a follow up event to change intents in DialogFlow
@@ -123,9 +144,13 @@ class ChatBot():
             #     "languageCode": "en-US",
             #     # "parameters": fields
             # }
-        else:
-            attachment = utils.Responses.generate_model_response(switch_entity, matched_switches[0])
-            self.api.messages.create(roomId=room_id, text=str(matched_switches[0]), attachments=[attachment])
+        elif match_data["matched"]:
+            if len(matched_switches) > 1:
+                message = f"**There are multiple equivalent switches for the {switch_entity}**"
+                self.api.messages.create(roomId=room_id, markdown=message)
+            for switch in matched_switches:
+                attachment = utils.Responses.generate_model_response(switch_entity, switch)
+                self.api.messages.create(roomId=room_id, text=str(switch), attachments=[attachment])
         
         reply = {"fulfillmentText": fulfillment_text}
 
@@ -141,24 +166,42 @@ class ChatBot():
         # Get the room details
         room = self.api.rooms.get(webhook_obj.data.roomId)
         # Get the message details
-        # message = self.api.messages.get(webhook_obj.data.id)
+        action = self.api.attachment_actions.get(webhook_obj.data.id)
         # Get the sender's details
-        # person = self.api.people.get(message.personId)
+        person = self.api.people.get(action.personId)
 
         # This is a VERY IMPORTANT loop prevention control step.
         # If you respond to all messages...  You will respond to the messages
         # that the bot posts and thereby create a loop condition.
-        # if message.personId == self.me.id:
-        #     print("Sent by me")
-        #     # Message was sent by me (bot); do not respond.
-        #     return "OK"
+        if action.personId == self.me.id:
+            print("Sent by me")
+            # Message was sent by me (bot); do not respond.
+            return "OK"
 
-        # if not message.text or message.text == "":
-        #     print("Empty message.")
-        #     return "OK"
+        # Sanitise the inputs so that it is compatable with the database and to remove
+        # security concerns
+        if type(action.inputs) == list:
+            inputs = self.editor.sanitise_inputs(action.inputs[0])
+        else:
+            inputs = self.editor.sanitise_inputs(action.inputs)
+        # Will return a string if something went wrong, otherwise a dict
+        if type(inputs) == str:
+                self.api.messages.create(roomId=room.id, markdown=str(f"**{inputs}**"))
+        else:
+            edit_result = self.editor.edit_switch_by_id(action.inputs["id"], inputs)
+            # Same here, if something goes wrong it will be a str
+            if type(edit_result) == str:
+                self.api.messages.create(roomId=room.id, markdown=str(f"**{edit_result}**"))
+            else:
+                # Everything is OK
+                self.api.messages.delete(messageId=webhook_obj.data.messageId)
+                if edit_result == utils.Results.EDIT:
+                    message = f"Successfully updated {action.inputs['id']}"
+                else:
+                    message = f"Successfully added {action.inputs['id']}"
+                self.api.messages.create(roomId=room.id, markdown=str(f"**{message}!**"))
 
-        self.api.messages.delete(messageId=webhook_obj.data.messageId)
-        self.api.messages.create(roomId=room.id, markdown=str("**Not Implemented**"))
+        return "OK"
 
     def receive_message(self, json_data):
         # Create a Webhook object from the JSON data
@@ -187,16 +230,27 @@ class ChatBot():
             print("Empty message.")
             return "OK"
 
+        message_text = message.text
+        
+        # Remove the user tag
+        if message_text.lower().startswith("meercat"):
+            message_text = " ".join(
+                [part for part in message_text.split(" ") if part.lower() != "meercat"]
+            )
+        # Fix for help command
+        if message_text.strip() == "help":
+            message_text = "/help"
+
         # User has entered a command
-        if message.text.strip()[0] == "/":
-            response_message = self.handle_command(message.personId, message.text)
+        if message_text.strip()[0] == "/":
+            response_message = self.handle_command(message.personId, message_text)
         else:
             # Create a unique session id as a combo of person and room id
             # We will also use this in the future to send content back (probably a little hacky)
             session_id = message.personId + "." + room.id
 
             # Call DialogFlow API to parse intent of message
-            response = self.converter.detect_intent_texts(session_id, message.text, 'en')
+            response = self.converter.detect_intent_texts(session_id, message_text, 'en')
             response_message = response.fulfillment_text
         
         if response_message:
