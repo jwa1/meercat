@@ -50,7 +50,7 @@ class Converter:
                 equivalent_switch = []
                 for mapping_id in mapping_ids:
                     matches = self.find_switch_by_id(db_session, mapping_id)
-                    if not equivalent_switch:
+                    if len(matches) == 0:
                         matches.extend(self.find_switch_by_id(db_session, mapping_id, expand=True))
                     equivalent_switch.extend(matches)
                     # Pass the data back
@@ -80,11 +80,13 @@ class Converter:
     # To fuzzy match we will inlude wildcards in between each model break
     # E.g. C9300L-48T-4G-E -> %C9300L%-%48T%-%4G%-%E%
     # This will ensure that C9300L-48T will match switches in that family
-    def find_switches_with_filters(self, db_session, fuzzy_match=False, expand=True, id=None, model=None, network_module=None):
+    def find_switches_with_filters(self, db_session, fuzzy_match=False, expand=True, id=None, model=None, network_module=None, add_meraki_hw_suffix=False):
         switches = db_session.query(models.Switch)
 
         # Filter based on passed parameters
         if model and model != '':
+            if add_meraki_hw_suffix and not model.lower().endswith("hw"):
+                model = model + "-HW"
             if fuzzy_match:
                 model = '%' + model.replace("-", "%-%") + '%'
             switches = switches.filter(models.Switch.model.like(f"{model}"))
@@ -101,12 +103,22 @@ class Converter:
         switches = switches.all()
 
         # Do a recursive fuzzy match if a direct match wasn't found
+        # Do a recursive fuzzy match if a direct match wasn't found
+        if len(switches) == 0 and not add_meraki_hw_suffix and expand:
+            return self.find_switches_with_filters(db_session,
+                        fuzzy_match=fuzzy_match,
+                        model=model,
+                        network_module=network_module,
+                        id=id,
+                        add_meraki_hw_suffix=True
+                    )
         if len(switches) == 0 and not fuzzy_match and expand:
             return self.find_switches_with_filters(db_session,
                         fuzzy_match=True,
                         model=model,
                         network_module=network_module,
-                        id=id
+                        id=id,
+                        add_meraki_hw_suffix=add_meraki_hw_suffix
                     )
 
         return switches
