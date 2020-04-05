@@ -269,7 +269,9 @@ class ChatBot():
                         self.api.messages.create(roomId=room.id, markdown=str(response))
                     
                     # Sometimes the message is too long so we will split it in half
-                    except ApiError:
+                    except ApiError as e:
+                        if "exceeded" not in e.message.lower():
+                            raise ApiError(e.response)
                         parts = str(response).split('\n')
                         part_1 = '\n'.join(parts[0:int(len(parts)/2)])
                         part_2 = '\n'.join(parts[int(len(parts)/2):])
