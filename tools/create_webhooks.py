@@ -64,11 +64,10 @@ from urllib.parse import urljoin
 
 # Constants
 NGROK_CLIENT_API_BASE_URL = "http://localhost:4040/api"
-WEBHOOK_NAME = "ngrok_webhook"
-WEBHOOK_URL_SUFFIX = "/events"
-WEBHOOK_RESOURCE = "messages"
-WEBHOOK_EVENT = "created"
-
+WEBHOOK_NAME = ["message_webhook", "attachment_action_webhook"]
+WEBHOOK_URL_SUFFIX = ["/events", "/actions"]
+WEBHOOK_RESOURCE = ["messages", "attachmentActions"]
+WEBHOOK_EVENT = ["created", "created"]
 
 def get_ngrok_public_url():
     """Get the ngrok public HTTP URL from the local client API."""
@@ -99,24 +98,26 @@ def delete_webhooks_with_name(api, name):
 
 def create_ngrok_webhook(api, ngrok_public_url):
     """Create a Webex Teams webhook pointing to the public ngrok URL."""
-    print("Creating Webhook...")
-    webhook = api.webhooks.create(
-        name=WEBHOOK_NAME,
-        targetUrl=urljoin(ngrok_public_url, WEBHOOK_URL_SUFFIX),
-        resource=WEBHOOK_RESOURCE,
-        event=WEBHOOK_EVENT,
-    )
-    
-    print(webhook)
-    print("Webhook successfully created.")
-    return webhook
+    for x in range(len(WEBHOOK_NAME)):
+        print(f"Creating Webhook '{WEBHOOK_NAME[x]}'...")
+        webhook = api.webhooks.create(
+            name=WEBHOOK_NAME[x],
+            targetUrl=urljoin(ngrok_public_url, WEBHOOK_URL_SUFFIX[x]),
+            resource=WEBHOOK_RESOURCE[x],
+            event=WEBHOOK_EVENT[x],
+        )
+        
+        print(webhook)
+        print("Webhook successfully created.")
 
 
 def main():
     """Delete previous webhooks. If local ngrok tunnel, create a webhook."""
     api = WebexTeamsAPI()
-    delete_webhooks_with_name(api, name=WEBHOOK_NAME)
-    public_url = get_ngrok_public_url()
+    for name in WEBHOOK_NAME:
+        delete_webhooks_with_name(api, name=name)
+    # public_url = get_ngrok_public_url()
+    public_url = "https://meercat-bot.herokuapp.com/compare"
     if public_url is not None:
         create_ngrok_webhook(api, public_url)
 

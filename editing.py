@@ -10,15 +10,70 @@ class Editor():
     def __init__(self):
         pass
 
-    def can_user_edit(self, person_id, db_session=None):
+    def get_approved_users(self, db_session=None):
+        # Reuse an existing session if it is passed
+        if db_session:
+            users = db_session.query(models.User).all()
+
+            return users
+
+        # Create a new db session
+        else:
+            try:
+                db_session = models.Session()
+
+                users = db_session.query(models.User).all()
+
+                return users
+
+            except InvalidRequestError:
+                # An SQL error will occur if the database is being spammed
+                db_session.rollback()
+                return False
+
+            finally:
+                db_session.close()
+
+    def get_admin_users(self, db_session=None):
+        # Reuse an existing session if it is passed
+        if db_session:
+            users = db_session.query(models.User).filter(
+                    models.User.privilege.like("admin")
+                ).all()
+
+            return users
+
+        # Create a new db session
+        else:
+            try:
+                db_session = models.Session()
+
+                users = db_session.query(models.User).filter(
+                    models.User.privilege.like("admin")
+                ).all()
+
+                return users
+
+            except InvalidRequestError:
+                # An SQL error will occur if the database is being spammed
+                db_session.rollback()
+                return False
+
+            finally:
+                db_session.close()
+
+    def can_user_edit(self, username, db_session=None):
         # Reuse an existing session if it is passed
         if db_session:
             user = db_session.query(models.User).filter(
-                models.User.id == person_id
+                models.User.id == username
             ).all()
 
             if len(user) == 1:
                 return user[0].can_edit()
+            return False
+        
+        elif not username:
             return False
 
         # Create a new db session
@@ -27,7 +82,7 @@ class Editor():
                 db_session = models.Session()
 
                 user = db_session.query(models.User).filter(
-                    models.User.id == person_id
+                    models.User.id == username
                 ).all()
 
                 if len(user) == 1:
@@ -42,7 +97,7 @@ class Editor():
             finally:
                 db_session.close()
 
-    def allow_user_by_id(self, me, person_id):
+    def allow_user_by_id(self, me, username):
         try:
             db_session = models.Session()
 
@@ -50,18 +105,18 @@ class Editor():
                 return f"You do not have permissions to edit allowed users."
 
             user = db_session.query(models.User).filter(
-                models.User.id == person_id
+                models.User.id == username
             ).all()
 
             if len(user) == 1:
                 db_session.delete(user[0])
             
-            new_user = models.User(id=person_id, privilege="editor")
+            new_user = models.User(id=username, privilege="editor")
             db_session.add(new_user)
 
             db_session.commit()
 
-            return f"Successfully added {person_id} to the allowed editors list."
+            return f"Successfully added {username} to the allowed editors list."
 
         except InvalidRequestError:
             # An SQL error will occur if the database is being spammed

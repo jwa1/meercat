@@ -103,7 +103,6 @@ class Converter:
         switches = switches.all()
 
         # Do a recursive fuzzy match if a direct match wasn't found
-        # Do a recursive fuzzy match if a direct match wasn't found
         if len(switches) == 0 and not add_meraki_hw_suffix and expand:
             return self.find_switches_with_filters(db_session,
                         fuzzy_match=fuzzy_match,

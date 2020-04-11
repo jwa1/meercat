@@ -66,6 +66,42 @@ class Switch(Base):
     switching_capacity = Column(Integer)
     mac_entry = Column(Integer)
     vlan = Column(Integer)
+    note = Column(String)
+
+    # Map some pretty names
+    name_mapping = {
+        "id": "ID",
+        "platform": "Platform",
+        "model": "Model",
+        "modular": "Modular?",
+        "stackable": "Stackable?",
+        "network_module": "Network Module",
+        "tier": "Tier",
+        "dl_ge":"1GE DL",
+        "dl_ge_poe": "1GE-PoE DL",
+        "dl_ge_poep": "1GE-PoE+ DL",
+        "dl_ge_upoep": "1GE-UPoE+ DL",
+        "dl_ge_sfp": "1G-SFP DL",
+        "dl_2ge_upoe": "2.5GE-UPoE DL",
+        "dl_mgig_poep": "mGig-PoE+ DL",
+        "dl_mgig_upoe": "mGig-UPoE DL",
+        "dl_10ge": "10GE DL",
+        "dl_10ge_sfpp": "10G-SFP+ DL",
+        "dl_25ge_sfp28": "25G-SFP28 DL",
+        "dl_40ge_qsfpp": "40G-QSFP+ DL",
+        "dl_100ge_qsfp28": "100G-QSFP28 DL",
+        "ul_ge_sfp": "1G-SFP UL",
+        "ul_mgig": "mGig UL",
+        "ul_10ge_sfpp": "10G-SFP UL",
+        "ul_25ge_sfp28": "25G-SFP28 UL",
+        "ul_40ge_qsfpp": "40G-QSFP+ UL",
+        "ul_100ge_qsfp28": "100G-QSFP28 UL",
+        "poe_power": "PoE Power",
+        "switching_capacity": "Switching Capacity",
+        "mac_entry": "Mac Table Size",
+        "vlan": "VLAN",
+        "note": "Notes"
+    }
 
     def __repr__(self):
         text = "Here are the details of the equivalent switch:\n\n"

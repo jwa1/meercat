@@ -40,8 +40,19 @@ class ChatBot():
         except IndexError:
             parameters = ""
 
+        username = utils.person_id_to_username(self.api, person_id)
+
         if command_type == "help":
-            return responses.RESPONSE_HELP
+            if not self.editor.can_user_edit(username):
+                return responses.RESPONSE_HELP_RESTRICTED
+            else:
+                return responses.RESPONSE_HELP
+        elif command_type == "info":
+            switch = self.editor.get_switch_by_id(parameters)
+            if switch:
+                return utils.Responses.generate_model_response(switch)
+            else:
+                return "Sorry, I couldn't find an equivalent switch for that."
         elif command_type == "list":
             if "switch" in parameters or parameters == "":
                 switches = self.editor.list_all_switches(parameters)
@@ -49,11 +60,14 @@ class ChatBot():
             elif "map" in parameters:
                 mapping = self.editor.list_all_mapping(parameters)
                 return utils.Responses.generate_mapping_response(mapping)
+            elif "user" in parameters:
+                users = self.editor.get_approved_users()
+                return utils.Responses.generate_approved_users_response(self.api, users)
             else:
                 return responses.RESPONSE_NOT_IMPLEMENTED
         elif command_type == "edit":
             # Check if the user is allowed to edit
-            if not self.editor.can_user_edit(person_id):
+            if not self.editor.can_user_edit(username):
                 return responses.RESPONSE_NO_PERMISSION
             switch = self.editor.get_switch_by_id(parameters)
             # Switch didn't exist
@@ -62,34 +76,31 @@ class ChatBot():
             return utils.Responses.generate_edit_response(switch)
         elif command_type == "add-switch":
             # Check if the user is allowed to edit
-            if not self.editor.can_user_edit(person_id):
+            if not self.editor.can_user_edit(username):
                 return responses.RESPONSE_NO_PERMISSION
             return utils.Responses.generate_add_response()
         elif command_type == "remove-switch":
             # Check if the user is allowed to edit
-            if not self.editor.can_user_edit(person_id):
+            if not self.editor.can_user_edit(username):
                 return responses.RESPONSE_NO_PERMISSION
             return self.editor.remove_switch_by_id(parameters)
         elif command_type == "add-mapping":
             # Check if the user is allowed to edit
-            if not self.editor.can_user_edit(person_id):
+            if not self.editor.can_user_edit(username):
                 return responses.RESPONSE_NO_PERMISSION
             return self.editor.add_mapping_by_id(parameters)
         elif command_type == "remove-mapping":
             # Check if the user is allowed to edit
-            if not self.editor.can_user_edit(person_id):
+            if not self.editor.can_user_edit(username):
                 return responses.RESPONSE_NO_PERMISSION
             return self.editor.remove_mapping_by_id(parameters)
         elif command_type == "allow":
-            return self.editor.allow_user_by_id(person_id, parameters)
+            return self.editor.allow_user_by_id(username, parameters)
         elif command_type == "disallow":
-            return self.editor.disallow_user_by_id(person_id, parameters)
+            return self.editor.disallow_user_by_id(username, parameters)
         elif command_type == "request":
-            # @TODO dynamically get the admin user ids
-            self.api.messages.create(
-                toPersonId="Y2lzY29zcGFyazovL3VzL1BFT1BMRS82NGZlMTE5ZC0zNDIzLTQwOTYtYWVjZS1iYzc2Y2JiYzcyZjA",
-                text=f"User {person_id} requests access.\nMessage: {parameters}"
-            )
+            # Send a request message to all admins
+            utils.Responses.generate_user_access_request(self.api, self.editor, person_id, username, parameters)
         elif command_type == "export":
             return responses.RESPONSE_NOT_IMPLEMENTED
         elif command_type == "import":
@@ -146,11 +157,19 @@ class ChatBot():
             # }
         elif match_data["matched"]:
             if len(matched_switches) > 1:
-                message = f"**There are multiple equivalent switches for the {switch_entity}**"
+                message = f"**There are {len(matched_switches)} equivalent switches for the {switch_entity}**"
                 self.api.messages.create(roomId=room_id, markdown=message)
-            for switch in matched_switches:
-                attachment = utils.Responses.generate_model_response(switch_entity, switch)
-                self.api.messages.create(roomId=room_id, text=str(switch), attachments=[attachment])
+
+            # If there are lots of equivalent switches, just return the names
+            if len(matched_switches) > 3:
+                message = f"*To find out more information about any particular switch, type '/info [SWITCH]'*\n\n"
+                for switch in matched_switches:
+                    message += f"- {switch.id}  \n"
+                self.api.messages.create(roomId=room_id, markdown=message)
+            else:
+                for switch in matched_switches:
+                    attachment = utils.Responses.generate_model_response(switch, original_model=switch_entity)
+                    self.api.messages.create(roomId=room_id, text=str(switch), attachments=[attachment])
         
         reply = {"fulfillmentText": fulfillment_text}
 
@@ -270,7 +289,7 @@ class ChatBot():
                     
                     # Sometimes the message is too long so we will split it in half
                     except ApiError as e:
-                        if "exceeded" not in e.message.lower():
+                        if "length limited" not in e.message.lower():
                             raise ApiError(e.response)
                         parts = str(response).split('\n')
                         part_1 = '\n'.join(parts[0:int(len(parts)/2)])

@@ -6,6 +6,17 @@ from pyadaptivecards.actions import Submit
 
 import models
 
+def person_id_to_username(api, person_id):
+    persons = api.people.list(id=person_id)
+    for person in persons:
+        if person.id == person_id:
+            for email in person.emails:
+                # We only want cisco people
+                if "@cisco.com" in email:
+                    return email.split("@")[0]
+    return None
+
+
 class DictWrapper:
     def __init__(self, d):
         self.__d = d
@@ -23,17 +34,19 @@ class Results:
 
 class Responses:
     @staticmethod
-    def generate_model_response(original_model, switch_data):
-        title = Container(items=[
-            TextBlock(text=f"The {original_model} is equivalent to the", size="Small", weight="Lighter"),
-            TextBlock(text=f"{switch_data.model}", size="ExtraLarge", color="Accent", spacing=None)
-        ])
+    def generate_model_response(switch_data, original_model=None):
+        items = []
+        if original_model:
+            items.append(TextBlock(text=f"The {original_model} is equivalent to the", size="Small", weight="Lighter"))
+        items.append(TextBlock(text=f"{switch_data.model}", size="ExtraLarge", color="Accent", spacing=None))
+        title = Container(items=items)
 
         facts = []
-        for attr, value in vars(switch_data).items():
-            # Don't append null values or internal attributes
-            if value and value != 'null' and attr[0] != '_':
-                facts.append(Fact(attr, value))
+        for attr, description in models.Switch.name_mapping.items():
+            value = vars(switch_data).get(attr, None)
+            if value:
+                facts.append(Fact(description, value))
+        
         factset = FactSet(facts)
 
         card = AdaptiveCard(body=[title, factset], fallbackText=str(switch_data))
@@ -141,3 +154,28 @@ class Responses:
         }
 
         return attachment
+
+    @staticmethod
+    def generate_user_access_request(api, editor, person_id, username, parameters):
+        admins = editor.get_admin_users()
+        person = api.people.get(person_id)
+        if not person or not admins:
+            pass
+
+        # Display none if nothing is supplied
+        if parameters == "":
+            parameters = "None"
+
+        message = f"{person.displayName} is requesting access for reason: {parameters}\n\nGrant access with command '/allow {username}'"
+
+        for admin in admins:
+            api.messages.create(toPersonEmail=admin.id + "@cisco.com", markdown=message)
+
+    @staticmethod
+    def generate_approved_users_response(api, users):
+        message = "**Users with editing permissions:**\n\n"
+        for user in users:
+            persons = api.people.list(email=f"{user.id}@cisco.com")
+            for person in persons:
+                message += f"{person.displayName} => {user.id}  \n"
+        return message
