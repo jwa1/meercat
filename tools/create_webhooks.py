@@ -56,7 +56,7 @@ import sys
 
 from webexteamssdk import WebexTeamsAPI
 import requests
-
+import click
 
 # Find and import urljoin
 from urllib.parse import urljoin
@@ -110,14 +110,19 @@ def create_ngrok_webhook(api, ngrok_public_url):
         print(webhook)
         print("Webhook successfully created.")
 
-
-def main():
+@click.command
+@click.option('--url', prompt="Webhook base URL", 
+              help="The base URL of your bot to receive webhooks from Webex Teams. " + \
+                    "If omitted, attempts to find local ngrok tunnel.")
+def main(url):
     """Delete previous webhooks. If local ngrok tunnel, create a webhook."""
     api = WebexTeamsAPI()
     for name in WEBHOOK_NAME:
         delete_webhooks_with_name(api, name=name)
-    # public_url = get_ngrok_public_url()
-    public_url = "https://meercat-bot.herokuapp.com/compare"
+    if not url:
+        public_url = get_ngrok_public_url()
+    else:
+        public_url = url
     if public_url is not None:
         create_ngrok_webhook(api, public_url)
 
