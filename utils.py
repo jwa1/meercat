@@ -70,7 +70,7 @@ class Responses:
         title = Container(items=items)
 
         facts = []
-        for attr, description in models.Switch.name_mapping.items():
+        for attr, description in models.Switch._name_mapping.items():
             value = vars(switch_data).get(attr, None)
             if value:
                 facts.append(Fact(description, value))
@@ -119,17 +119,17 @@ class Responses:
 
         items = []
         vars(models.Switch).keys()
-        for attr in vars(models.Switch).keys():
+        for attr, description in models.Switch._name_mapping.items():
             try:
-                value = getattr(switch, attr)
+                value = vars(switch).get(attr, None)
                 # Don't append null values or internal attributes
                 if attr[0] != '_':
                     if type(value) == bool:
-                        items.append(Toggle(attr, attr, value=value))
+                        items.append(Toggle(description, attr, value=value))
                     else:
-                        items.append(TextBlock(text=f"{attr}"))
+                        items.append(TextBlock(text=f"{description}"))
                         items.append(
-                            Text(attr, placeholder=f"{attr}", value=value))
+                            Text(attr, placeholder=f"{description}", value=value))
 
             except AttributeError:
                 continue

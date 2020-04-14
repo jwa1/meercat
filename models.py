@@ -88,7 +88,7 @@ class Switch(Base):
     note = Column(String)
 
     # Map some pretty names
-    name_mapping = {
+    _name_mapping = {
         "id": "ID",
         "platform": "Platform",
         "model": "Model",

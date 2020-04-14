@@ -53,6 +53,7 @@ class Converter:
             data["matched"] = False
             data["modular"] = False
             data["switches"] = []
+            data["matched_model"] = None
 
             db_session = models.Session()
 
@@ -61,6 +62,9 @@ class Converter:
 
             # We found one match
             if len(requested_switch) == 1:
+                # Save the name of the matched model
+                data["matched_model"] = requested_switch[0].id
+                
                 mapping_ids = self.find_switch_mapping(db_session,
                                                        requested_switch[0].id)
                 # Could not find an equivalent
@@ -134,7 +138,8 @@ class Converter:
         switches = switches.all()
 
         # Do a recursive fuzzy match if a direct match wasn't found
-        if len(switches) == 0 and not add_meraki_hw_suffix and expand:
+        if len(switches) == 0 and model and model[0].lower(
+        ) == "m" and not add_meraki_hw_suffix and expand:
             return self.find_switches_with_filters(
                 db_session,
                 fuzzy_match=fuzzy_match,

@@ -144,6 +144,7 @@ class ChatBot():
 
         match_data = self.converter.find_equivalent_switch(fields)
         matched_switches = match_data.get("switches", None)
+        switch_entity = match_data.get("matched_model", switch_entity)
 
         # Check if we found any switch matching the model
         if not matched_switches:
