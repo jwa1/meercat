@@ -15,19 +15,18 @@ IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 or implied.
 """
 
-
-import sqlalchemy as db
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey
-
 import os
 
+import sqlalchemy as db
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 database_url = os.getenv('DATABASE_URL')
 db_engine = db.create_engine(database_url)
 Session = sessionmaker(bind=db_engine)
 Base = declarative_base(name='Model')
+
 
 class User(Base):
     __tablename__ = 'users'
@@ -41,12 +40,14 @@ class User(Base):
     def can_edit(self):
         return self.privilege.lower() == "editor" or self.is_admin()
 
+
 class Mapping(Base):
     __tablename__ = 'mapping'
 
     id = Column(Integer, primary_key=True)
     catalyst = Column(String, ForeignKey('switch.id'))
     meraki = Column(String, ForeignKey('switch.id'))
+
 
 class Switch(Base):
     __tablename__ = 'switch'
@@ -79,7 +80,7 @@ class Switch(Base):
     ul_25ge_sfp28 = Column(Integer)
     ul_40ge_qsfpp = Column(Integer)
     ul_100ge_qsfp28 = Column(Integer)
-    
+
     poe_power = Column(Integer)
     switching_capacity = Column(Integer)
     mac_entry = Column(Integer)
@@ -95,7 +96,7 @@ class Switch(Base):
         "stackable": "Stackable?",
         "network_module": "Network Module",
         "tier": "Tier",
-        "dl_ge":"1GE DL",
+        "dl_ge": "1GE DL",
         "dl_ge_poe": "1GE-PoE DL",
         "dl_ge_poep": "1GE-PoE+ DL",
         "dl_ge_upoep": "1GE-UPoE+ DL",

@@ -15,14 +15,14 @@ IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 or implied.
 """
 
-
 import sqlalchemy as db
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy import or_
+from sqlalchemy.exc import InvalidRequestError
+from sqlalchemy.orm import sessionmaker
 
 import models
 from utils import Results
+
 
 class Editor():
     def __init__(self):
@@ -56,8 +56,7 @@ class Editor():
         # Reuse an existing session if it is passed
         if db_session:
             users = db_session.query(models.User).filter(
-                    models.User.privilege.like("admin")
-                ).all()
+                models.User.privilege.like("admin")).all()
 
             return users
 
@@ -67,8 +66,7 @@ class Editor():
                 db_session = models.Session()
 
                 users = db_session.query(models.User).filter(
-                    models.User.privilege.like("admin")
-                ).all()
+                    models.User.privilege.like("admin")).all()
 
                 return users
 
@@ -83,14 +81,13 @@ class Editor():
     def can_user_edit(self, username, db_session=None):
         # Reuse an existing session if it is passed
         if db_session:
-            user = db_session.query(models.User).filter(
-                models.User.id == username
-            ).all()
+            user = db_session.query(
+                models.User).filter(models.User.id == username).all()
 
             if len(user) == 1:
                 return user[0].can_edit()
             return False
-        
+
         elif not username:
             return False
 
@@ -99,9 +96,8 @@ class Editor():
             try:
                 db_session = models.Session()
 
-                user = db_session.query(models.User).filter(
-                    models.User.id == username
-                ).all()
+                user = db_session.query(
+                    models.User).filter(models.User.id == username).all()
 
                 if len(user) == 1:
                     return user[0].can_edit()
@@ -122,13 +118,12 @@ class Editor():
             if not self.can_user_edit(me, db_session=db_session):
                 return f"You do not have permissions to edit allowed users."
 
-            user = db_session.query(models.User).filter(
-                models.User.id == username
-            ).all()
+            user = db_session.query(
+                models.User).filter(models.User.id == username).all()
 
             if len(user) == 1:
                 db_session.delete(user[0])
-            
+
             new_user = models.User(id=username, privilege="editor")
             db_session.add(new_user)
 
@@ -151,9 +146,8 @@ class Editor():
             if not self.can_user_edit(me, db_session=db_session):
                 return f"You do not have permissions to edit allowed users."
 
-            user = db_session.query(models.User).filter(
-                models.User.id == person_id
-            ).all()
+            user = db_session.query(
+                models.User).filter(models.User.id == person_id).all()
 
             if len(user) == 1:
                 if not user[0].can_edit():
@@ -187,8 +181,9 @@ class Editor():
             switches = db_session.query(models.Switch)
 
             if do_filter:
-                switches = switches.filter(models.Switch.id.like(f"%{parameters[1]}%"))
-            
+                switches = switches.filter(
+                    models.Switch.id.like(f"%{parameters[1]}%"))
+
             switches = switches.all()
 
             return switches
@@ -214,10 +209,9 @@ class Editor():
             mapping = db_session.query(models.Mapping)
 
             if do_filter:
-                mapping = mapping.filter(or_(
-                    models.Mapping.meraki.like(f"%{parameters[1]}%"),
-                    models.Mapping.catalyst.like(f"%{parameters[1]}%")
-                ))
+                mapping = mapping.filter(
+                    or_(models.Mapping.meraki.like(f"%{parameters[1]}%"),
+                        models.Mapping.catalyst.like(f"%{parameters[1]}%")))
 
             mapping = mapping.all()
 

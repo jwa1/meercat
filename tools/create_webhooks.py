@@ -34,16 +34,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-
 # Use future for Python v2 and v3 compatibility
-from __future__ import (
-    absolute_import,
-    division,
-    print_function,
-    unicode_literals,
-)
-from builtins import *
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
+import sys
+from builtins import *
+# Find and import urljoin
+from urllib.parse import urljoin
+
+import click
+import requests
+from webexteamssdk import WebexTeamsAPI
 
 __author__ = "Brad Bester"
 __author_email__ = "brbester@cisco.com"
@@ -52,14 +54,6 @@ __copyright__ = "Copyright (c) 2016-2019 Cisco and/or its affiliates."
 __license__ = "MIT"
 
 
-import sys
-
-from webexteamssdk import WebexTeamsAPI
-import requests
-import click
-
-# Find and import urljoin
-from urllib.parse import urljoin
 
 
 # Constants
@@ -68,6 +62,7 @@ WEBHOOK_NAME = ["message_webhook", "attachment_action_webhook"]
 WEBHOOK_URL_SUFFIX = ["/events", "/actions"]
 WEBHOOK_RESOURCE = ["messages", "attachmentActions"]
 WEBHOOK_EVENT = ["created", "created"]
+
 
 def get_ngrok_public_url():
     """Get the ngrok public HTTP URL from the local client API."""
@@ -106,12 +101,13 @@ def create_ngrok_webhook(api, ngrok_public_url):
             resource=WEBHOOK_RESOURCE[x],
             event=WEBHOOK_EVENT[x],
         )
-        
+
         print(webhook)
         print("Webhook successfully created.")
 
+
 @click.command
-@click.option('--url', prompt="Webhook base URL", 
+@click.option('--url', prompt="Webhook base URL",
               help="The base URL of your bot to receive webhooks from Webex Teams. " + \
                     "If omitted, attempts to find local ngrok tunnel.")
 def main(url):

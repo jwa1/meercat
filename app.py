@@ -15,15 +15,15 @@ IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 or implied.
 """
 
-from flask import Flask, request, jsonify, render_template
-
-import os
-import requests
 import json
 import logging
+import os
 
-from conversion import Converter
+import requests
+from flask import Flask, jsonify, render_template, request
+
 from bot import ChatBot
+from conversion import Converter
 
 # Create flask instance
 app = Flask(__name__)
@@ -32,23 +32,28 @@ port = int(os.environ.get("PORT", 5000))
 # Create an instance of the chat bot
 bot = ChatBot()
 
+
 @app.route('/')
 def index():
     gif = "https://66.media.tumblr.com/0a14eda38c31356d1e164009ef1edf2f/tumblr_mjpnd23P7x1qhbw13o1_400.gifv"
     return render_template('index.html', gif_url=gif)
 
+
 @app.route('/compare', methods=["POST"])
 def compare():
     return bot.compare(request.json)
+
 
 @app.route('/events', methods=['POST'])
 def message_received():
     # Get the POST data sent from Webex Teams
     return bot.receive_message(request.json)
 
+
 @app.route('/actions', methods=['POST'])
 def attachment_action_received():
     return bot.execute_action(request.json)
+
 
 # run Flask app
 if __name__ == "__main__":
@@ -61,4 +66,3 @@ if __name__ == "__main__":
         exit()
 
     app.run("0.0.0.0", port=port)
-    

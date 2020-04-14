@@ -15,21 +15,19 @@ IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 or implied.
 """
 
+import json
+import logging
+import os
+from pprint import pprint
 
 from flask import jsonify
 from webexteamssdk import WebexTeamsAPI, Webhook
 from webexteamssdk.exceptions import ApiError
 
-import json
-import os
-from pprint import pprint
-import logging
-
+import responses
+import utils
 from conversion import Converter
 from editing import Editor
-import utils
-
-import responses
 
 
 class ChatBot():
@@ -45,7 +43,8 @@ class ChatBot():
         # Check if the token represents a bot
         me_resp = self.api.people.me()
         if me_resp.type != 'bot':
-            print('WEBEX_TEAMS_ACCESS_TOKEN does not belong to a bot...exiting')
+            print(
+                'WEBEX_TEAMS_ACCESS_TOKEN does not belong to a bot...exiting')
             exit()
 
     def handle_command(self, person_id, command):
@@ -79,7 +78,8 @@ class ChatBot():
                 return utils.Responses.generate_mapping_response(mapping)
             elif "user" in parameters:
                 users = self.editor.get_approved_users()
-                return utils.Responses.generate_approved_users_response(self.api, users)
+                return utils.Responses.generate_approved_users_response(
+                    self.api, users)
             else:
                 return responses.RESPONSE_NOT_IMPLEMENTED
         elif command_type == "edit":
@@ -117,7 +117,8 @@ class ChatBot():
             return self.editor.disallow_user_by_id(username, parameters)
         elif command_type == "request":
             # Send a request message to all admins
-            utils.Responses.generate_user_access_request(self.api, self.editor, person_id, username, parameters)
+            utils.Responses.generate_user_access_request(
+                self.api, self.editor, person_id, username, parameters)
         elif command_type == "export":
             return responses.RESPONSE_NOT_IMPLEMENTED
         elif command_type == "import":
@@ -140,7 +141,7 @@ class ChatBot():
 
         fields = data["queryResult"]["parameters"]
         switch_entity = fields.get("Model", None)
-        
+
         match_data = self.converter.find_equivalent_switch(fields)
         matched_switches = match_data.get("switches", None)
 
@@ -153,7 +154,8 @@ class ChatBot():
             else:
                 fulfillment_text = f"Sorry, I couldn't find an equivalent switch for that."
         # Multiple fixed chassis matches
-        elif len(matched_switches) > 1 and not match_data["modular"] and not match_data["matched"]:
+        elif len(matched_switches) > 1 and not match_data[
+                "modular"] and not match_data["matched"]:
             fulfillment_text = "**I've found multiple matches for that model - please be more specific.**\n\n"
             for switch in matched_switches:
                 fulfillment_text += f"- {switch.model}\n"
@@ -185,9 +187,12 @@ class ChatBot():
                 self.api.messages.create(roomId=room_id, markdown=message)
             else:
                 for switch in matched_switches:
-                    attachment = utils.Responses.generate_model_response(switch, original_model=switch_entity)
-                    self.api.messages.create(roomId=room_id, text=str(switch), attachments=[attachment])
-        
+                    attachment = utils.Responses.generate_model_response(
+                        switch, original_model=switch_entity)
+                    self.api.messages.create(roomId=room_id,
+                                             text=str(switch),
+                                             attachments=[attachment])
+
         reply = {"fulfillmentText": fulfillment_text}
 
         # Set a DialogFlow followup event
@@ -222,12 +227,15 @@ class ChatBot():
             inputs = self.editor.sanitise_inputs(action.inputs)
         # Will return a string if something went wrong, otherwise a dict
         if type(inputs) == str:
-                self.api.messages.create(roomId=room.id, markdown=str(f"**{inputs}**"))
+            self.api.messages.create(roomId=room.id,
+                                     markdown=str(f"**{inputs}**"))
         else:
-            edit_result = self.editor.edit_switch_by_id(action.inputs["id"], inputs)
+            edit_result = self.editor.edit_switch_by_id(
+                action.inputs["id"], inputs)
             # Same here, if something goes wrong it will be a str
             if type(edit_result) == str:
-                self.api.messages.create(roomId=room.id, markdown=str(f"**{edit_result}**"))
+                self.api.messages.create(roomId=room.id,
+                                         markdown=str(f"**{edit_result}**"))
             else:
                 # Everything is OK
                 self.api.messages.delete(messageId=webhook_obj.data.messageId)
@@ -235,7 +243,8 @@ class ChatBot():
                     message = f"Successfully updated {action.inputs['id']}"
                 else:
                     message = f"Successfully added {action.inputs['id']}"
-                self.api.messages.create(roomId=room.id, markdown=str(f"**{message}!**"))
+                self.api.messages.create(roomId=room.id,
+                                         markdown=str(f"**{message}!**"))
 
         return "OK"
 
@@ -267,28 +276,31 @@ class ChatBot():
             return "OK"
 
         message_text = message.text
-        
+
         # Remove the user tag
         if message_text.lower().startswith("meercat"):
-            message_text = " ".join(
-                [part for part in message_text.split(" ") if part.lower() != "meercat"]
-            )
+            message_text = " ".join([
+                part for part in message_text.split(" ")
+                if part.lower() != "meercat"
+            ])
         # Fix for help command
         if message_text.strip() == "help":
             message_text = "/help"
 
         # User has entered a command
         if message_text.strip()[0] == "/":
-            response_message = self.handle_command(message.personId, message_text)
+            response_message = self.handle_command(message.personId,
+                                                   message_text)
         else:
             # Create a unique session id as a combo of person and room id
             # We will also use this in the future to send content back (probably a little hacky)
             session_id = message.personId + "." + room.id
 
             # Call DialogFlow API to parse intent of message
-            response = self.converter.detect_intent_texts(session_id, message_text, 'en')
+            response = self.converter.detect_intent_texts(
+                session_id, message_text, 'en')
             response_message = response.fulfillment_text
-        
+
         if response_message:
             # Allow for a list response
             if type(response_message) is not list:
@@ -296,23 +308,26 @@ class ChatBot():
             for response in response_message:
                 # Response will be dict if it is an adaptivecard
                 if type(response) is dict:
-                    self.api.messages.create(roomId=room.id, 
-                            text=response['content']['fallbackText'], 
-                            attachments=[response]
-                        )
+                    self.api.messages.create(
+                        roomId=room.id,
+                        text=response['content']['fallbackText'],
+                        attachments=[response])
                 else:
                     try:
-                        self.api.messages.create(roomId=room.id, markdown=str(response))
-                    
+                        self.api.messages.create(roomId=room.id,
+                                                 markdown=str(response))
+
                     # Sometimes the message is too long so we will split it in half
                     except ApiError as e:
                         if "length limited" not in e.message.lower():
                             raise ApiError(e.response)
                         parts = str(response).split('\n')
-                        part_1 = '\n'.join(parts[0:int(len(parts)/2)])
-                        part_2 = '\n'.join(parts[int(len(parts)/2):])
-                        self.api.messages.create(roomId=room.id, markdown=str(part_1))
-                        self.api.messages.create(roomId=room.id, markdown=str(part_2))
+                        part_1 = '\n'.join(parts[0:int(len(parts) / 2)])
+                        part_2 = '\n'.join(parts[int(len(parts) / 2):])
+                        self.api.messages.create(roomId=room.id,
+                                                 markdown=str(part_1))
+                        self.api.messages.create(roomId=room.id,
+                                                 markdown=str(part_2))
 
-        response_text = { "message":  "OK" }
+        response_text = {"message": "OK"}
         return jsonify(response_text)
