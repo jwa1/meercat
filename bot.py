@@ -58,6 +58,7 @@ class ChatBot():
 
         username = utils.person_id_to_username(self.api, person_id)
 
+        # Do some things depending on the command
         if command_type == "help":
             if not self.editor.can_user_edit(username):
                 return responses.RESPONSE_HELP_RESTRICTED
@@ -137,7 +138,6 @@ class ChatBot():
         # The text to return and send back to the user
         # This will sometimes be overridden by DialogFlow
         fulfillment_text = ""
-        followup_event = None
 
         fields = data["queryResult"]["parameters"]
         switch_entity = fields.get("Model", None)
@@ -168,12 +168,6 @@ class ChatBot():
                 fulfillment_text += f"- {switch.model} with a {switch.network_module}\n"
             fulfillment_text = fulfillment_text[:-1]
 
-            # Return a follow up event to change intents in DialogFlow
-            # followup_event = {
-            #     "name": "switchmodel-modular",
-            #     "languageCode": "en-US",
-            #     # "parameters": fields
-            # }
         elif match_data["matched"]:
             if len(matched_switches) > 1:
                 message = f"**There are {len(matched_switches)} equivalent switches for the {switch_entity}**"
@@ -194,10 +188,6 @@ class ChatBot():
                                              attachments=[attachment])
 
         reply = {"fulfillmentText": fulfillment_text}
-
-        # Set a DialogFlow followup event
-        if followup_event:
-            reply["followupEventInput"] = followup_event
 
         return jsonify(reply)
 
