@@ -163,20 +163,30 @@ class Converter:
                                                model=model,
                                                expand=expand)
 
-    def find_switch_mapping(self, db_session, id):
+    def find_switch_mapping(self, db_session, id, fuzzy_match=False):
+        # If doing a fuzzy match, add % onto the ends
+        if fuzzy_match:
+            search = f"%{id}%"
+        else:
+            search = id
+
         # Meraki models always start with M
         if id[0].lower() == "m":
             matches = db_session.query(models.Mapping).filter(
-                models.Mapping.meraki.like(f"%{id}%")).all()
+                models.Mapping.meraki.like(search)).all()
             if matches:
                 return [m.catalyst for m in matches]
                 # return matches[0].catalyst
         else:
             matches = db_session.query(models.Mapping).filter(
-                models.Mapping.catalyst.like(f"%{id}%")).all()
+                models.Mapping.catalyst.like(search)).all()
             if matches:
                 return [m.meraki for m in matches]
 
         if __debug__:
             print(f"Error could not find mapping for {id}")
-        return None
+
+        if not fuzzy_match:
+            return self.find_switch_mapping(db_session, id, fuzzy_match=True)
+        else:
+            return None
