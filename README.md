@@ -1,6 +1,6 @@
 # Meercat - Meraki and Catalyst Switch Conversion
 
-A Webex Teams bot to provide product conversion between the Catalyst and Meraki platforms through natrual language.
+A Webex Teams bot to provide an estimate of similar products between the Catalyst and Meraki platforms through natrual language.
 
 ![Example Chat](static/example_1.png)
 
